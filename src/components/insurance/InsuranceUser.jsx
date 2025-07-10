@@ -25,7 +25,8 @@ export const InsuranceBase = () => {
     const [seguroSeleccionado, setSeguroSeleccionado] = useState(null);
     const [cuentaSeleccionada, setCuentaSeleccionada] = useState("");
       const [errorCuenta, setErrorCuenta] = useState(""); 
-
+  const [searchTermCuenta, setSearchTermCuenta] = useState("");
+  const [showSuggestionsCuenta, setShowSuggestionsCuenta] = useState(false);
   useEffect(() => {
     fetchSolicitudesUsuario();
     fetchSegurosDisponibles();
@@ -294,18 +295,74 @@ if (view === "seguros") {
                   <label className="block text-sm font-medium text-[#9AF241]">
                     Selecciona tu cuenta
                   </label>
-                  <select
-                    value={cuentaSeleccionada}
-                    onChange={(e) => setCuentaSeleccionada(e.target.value)}
-                    className="w-full bg-[#334155] border border-[#9AF241] rounded-lg px-4 py-3 text-white"
-                  >
-                    <option value="">Seleccione una cuenta</option>
-                    {cuentas.map((c) => (
-                      <option key={c.numeroCuenta} value={c.numeroCuenta}>
-                        {c.numeroCuenta} - {c.tipoCuenta} - {c.saldoCuenta}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="space-y-2 relative">
+                    <label className="block text-sm font-medium text-[#9AF241]">
+                      Selecciona tu cuenta *
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={searchTermCuenta}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setSearchTermCuenta(value);
+                          
+                          // Buscar coincidencia exacta
+                          const cuentaExacta = cuentas.find(c => 
+                            c.numeroCuenta === value.trim() || 
+                            `${c.numeroCuenta} - ${c.tipoCuenta} (Q${c.saldoCuenta.toFixed(2)})` === value.trim()
+                          );
+                          
+                          if (cuentaExacta) {
+                            setCuentaSeleccionada(cuentaExacta.numeroCuenta);
+                            setShowSuggestionsCuenta(false);
+                          } else {
+                            setShowSuggestionsCuenta(true);
+                          }
+                        }}
+                        onFocus={() => setShowSuggestionsCuenta(true)}
+                        onBlur={() => setTimeout(() => setShowSuggestionsCuenta(false), 200)}
+                        placeholder="Buscar cuenta por número o tipo"
+                        className="w-full bg-[#334155] border border-[#9AF241] rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                      />
+                      <input type="hidden" name="cuentaSeleccionada" value={cuentaSeleccionada} />
+                      
+                      {showSuggestionsCuenta && cuentas.filter(c => 
+                        c.numeroCuenta.includes(searchTermCuenta) ||
+                        c.tipoCuenta.toLowerCase().includes(searchTermCuenta.toLowerCase())
+                      ).length > 0 && (
+                        <ul className="absolute z-10 w-full bg-[#1e293b] border border-[#9AF241] mt-1 rounded-lg max-h-60 overflow-y-auto shadow-lg">
+                          {cuentas
+                            .filter(c => 
+                              c.numeroCuenta.includes(searchTermCuenta) ||
+                              c.tipoCuenta.toLowerCase().includes(searchTermCuenta.toLowerCase())
+                            )
+                            .map(c => (
+                              <li
+                                key={c.numeroCuenta}
+                                onClick={() => {
+                                  setCuentaSeleccionada(c.numeroCuenta);
+                                  setSearchTermCuenta(`${c.numeroCuenta} - ${c.tipoCuenta} (Q${c.saldoCuenta.toFixed(2)})`);
+                                  setShowSuggestionsCuenta(false);
+                                }}
+                                className="px-4 py-2 hover:bg-[#334155] cursor-pointer text-white text-sm"
+                              >
+                                {c.numeroCuenta} - {c.tipoCuenta} (Q{c.saldoCuenta.toFixed(2)})
+                              </li>
+                            ))}
+                        </ul>
+                      )}
+                    </div>
+                    {errorCuenta && (
+                      <motion.p
+                        className="text-sm text-red-400"
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                      >
+                        {errorCuenta}
+                      </motion.p>
+                    )}
+                  </div>
                 </div>
                 {errorCuenta && (
                 <div className="flex justify-center w-full">
@@ -360,7 +417,6 @@ if (view === "seguros") {
       </div>
     );
   }
-
 
   return null;
 };

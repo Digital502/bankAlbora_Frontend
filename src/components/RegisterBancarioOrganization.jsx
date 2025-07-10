@@ -45,7 +45,10 @@ const particleVariants = {
 
 export const RegisterBancarioOrganization = ({ switchAuthHandler }) => {
   const { accounts, getUseAccounts, isLoading, registerAccountOrganization } = useRegisterAccount();
-  const [users, setUsers] = useState([]);
+  const [organizations, setOrganizations] = useState([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [filteredOrganizations, setFilteredOrganizations] = useState([]);
 
   const [formState, setFormState] = useState({
     ingresosMensuales: { value: "", isValid: false, showError: false, isFocused: false },
@@ -55,15 +58,18 @@ export const RegisterBancarioOrganization = ({ switchAuthHandler }) => {
   });
 
   useEffect(() => {
-    const fetchUsers = async () => {
+    const fetchOrganizations = async () => {
       try {
         const response = await getOrganization();
         if (response?.organizations?.length) {
-          const formattedUsers = response.organizations.map((organization) => ({
-            label: organization.nombre || organization.name || organization.correo,
-            value: organization.uid || organization.id,
+          const formattedOrgs = response.organizations.map((org) => ({
+            label: org.nombre || org.name || org.correo,
+            value: org.uid || org.id,
+            name: org.nombre || org.name,
+            email: org.correo
           }));
-          setUsers(formattedUsers);
+          setOrganizations(formattedOrgs);
+          setFilteredOrganizations(formattedOrgs);
         } else {
           toast.error("No se encontraron organizaciones.");
         }
@@ -72,8 +78,53 @@ export const RegisterBancarioOrganization = ({ switchAuthHandler }) => {
       }
     };
 
-    fetchUsers();
+    fetchOrganizations();
   }, []);
+
+  const handleOrganizationSearchChange = (e) => {
+    const value = e.target.value;
+    setSearchTerm(value);
+    setFormState(prev => ({
+      ...prev,
+      organization: { ...prev.organization, value: '' }
+    }));
+
+    if (value.trim() === '') {
+      setShowSuggestions(false);
+      setFilteredOrganizations(organizations);
+    } else {
+      setShowSuggestions(true);
+      const filtered = organizations.filter(org =>
+        org.name?.toLowerCase().includes(value.toLowerCase()) ||
+        org.email?.toLowerCase().includes(value.toLowerCase()) ||
+        org.label?.toLowerCase().includes(value.toLowerCase())
+      );
+      setFilteredOrganizations(filtered);
+    }
+
+    const match = organizations.find(org =>
+      org.email === value.trim() ||
+      org.name === value.trim() ||
+      org.label === value.trim()
+    );
+
+    if (match) {
+      setFormState(prev => ({
+        ...prev,
+        organization: { ...prev.organization, value: match.value }
+      }));
+      setShowSuggestions(false);
+    }
+  };
+
+  const handleSuggestionClick = (org) => {
+    setSearchTerm(org.label);
+    setFormState(prev => ({
+      ...prev,
+      organization: { ...prev.organization, value: org.value }
+    }));
+    setShowSuggestions(false);
+  };
 
   const [clickedRegister, setClickedRegister] = useState(false);
   const particlesArray = Array(60).fill(0);
@@ -184,17 +235,15 @@ export const RegisterBancarioOrganization = ({ switchAuthHandler }) => {
           onChange={(e) => handleInputValueChange(e.target.value, field)}
           onFocus={() => handleInputFocus(field)}
           onBlur={() => handleInputBlur(field)}
-          className={`w-full bg-[#334155] border ${
-            fieldState.showError ? "border-red-500" : "border-[#9AF241]"
-          } rounded-lg px-4 pt-5 pb-2 focus:outline-none focus:ring-2 focus:ring-cyan-500 peer transition-all`}
+          className={`w-full bg-[#334155] border ${fieldState.showError ? "border-red-500" : "border-[#9AF241]"
+            } rounded-lg px-4 pt-5 pb-2 focus:outline-none focus:ring-2 focus:ring-cyan-500 peer transition-all`}
         />
         <label
           htmlFor={field}
-          className={`absolute left-4 ${
-            fieldState.value || fieldState.isFocused
+          className={`absolute left-4 ${fieldState.value || fieldState.isFocused
               ? "top-1 text-xs text-[#9AF241]"
               : "top-1/2 -translate-y-1/2 text-gray-400"
-          } peer-focus:top-1 peer-focus:text-xs peer-focus:text-[#9AF241] transition-all duration-200`}
+            } peer-focus:top-1 peer-focus:text-xs peer-focus:text-[#9AF241] transition-all duration-200`}
         >
           {label}
         </label>
@@ -224,9 +273,8 @@ export const RegisterBancarioOrganization = ({ switchAuthHandler }) => {
           id={field}
           value={fieldState.value}
           onChange={(e) => handleInputValueChange(e.target.value, field)}
-          className={`w-full bg-[#334155] border ${
-            fieldState.showError ? "border-red-500" : "border-[#9AF241]"
-          } rounded-lg px-4 pt-5 pb-2 focus:outline-none focus:ring-2 focus:ring-cyan-500 peer transition-all`}
+          className={`w-full bg-[#334155] border ${fieldState.showError ? "border-red-500" : "border-[#9AF241]"
+            } rounded-lg px-4 pt-5 pb-2 focus:outline-none focus:ring-2 focus:ring-cyan-500 peer transition-all`}
         >
           {options.map((option) => (
             <option key={option.value} value={option.value}>
@@ -236,14 +284,88 @@ export const RegisterBancarioOrganization = ({ switchAuthHandler }) => {
         </select>
         <label
           htmlFor={field}
-          className={`absolute left-4 ${
-            fieldState.value || fieldState.isFocused
+          className={`absolute left-4 ${fieldState.value || fieldState.isFocused
               ? "top-1 text-xs text-[#9AF241]"
               : "top-1/2 -translate-y-1/2 text-gray-400"
-          } peer-focus:top-1 peer-focus:text-xs peer-focus:text-[#9AF241] transition-all duration-200`}
+            } peer-focus:top-1 peer-focus:text-xs peer-focus:text-[#9AF241] transition-all duration-200`}
         >
           {label}
         </label>
+      </motion.div>
+    );
+  };
+
+  const renderOrganizationSearchField = () => {
+    const fieldState = formState.organization;
+    return (
+      <motion.div
+        className="relative"
+        whileHover={{ scale: 1.02 }}
+        transition={{ type: "spring", stiffness: 400, damping: 10 }}
+      >
+        <div className="relative">
+          <input
+            id="organizationSearch"
+            type="text"
+            value={searchTerm}
+            onChange={handleOrganizationSearchChange}
+            onFocus={() => {
+              handleInputFocus('organization');
+              if (searchTerm.trim() !== '') setShowSuggestions(true);
+            }}
+            onBlur={() => {
+              setTimeout(() => setShowSuggestions(false), 200);
+              handleInputBlur('organization');
+            }}
+            placeholder=""
+            className={`w-full bg-[#334155] border ${fieldState.showError ? "border-red-500" : "border-[#9AF241]"
+              } rounded-lg px-4 pt-5 pb-2 focus:outline-none focus:ring-2 focus:ring-cyan-500 peer transition-all`}
+          />
+          <label
+            htmlFor="organizationSearch"
+            className={`absolute left-4 ${searchTerm || fieldState.isFocused
+                ? "top-1 text-xs text-[#9AF241]"
+                : "top-1/2 -translate-y-1/2 text-gray-400"
+              } peer-focus:top-1 peer-focus:text-xs peer-focus:text-[#9AF241] transition-all duration-200`}
+          >
+            Organización Referencia
+          </label>
+
+          {showSuggestions && (
+            <ul className="absolute z-10 w-full bg-[#1e293b] border border-[#9AF241] mt-1 rounded-lg max-h-60 overflow-y-auto shadow-lg">
+              {filteredOrganizations.length > 0 ? (
+                filteredOrganizations.map(org => (
+                  <li
+                    key={org.value}
+                    onClick={() => handleSuggestionClick(org)}
+                    className="px-4 py-2 hover:bg-[#334155] cursor-pointer text-white text-sm"
+                  >
+                    {org.label}
+                  </li>
+                ))
+              ) : (
+                <li className="px-4 py-2 text-gray-400 text-sm">No se encontraron coincidencias</li>
+              )}
+            </ul>
+          )}
+        </div>
+
+        <input
+          type="hidden"
+          name="organization"
+          value={fieldState.value}
+        />
+
+        {fieldState.showError && (
+          <motion.p
+            className="mt-1 text-sm text-red-400"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            "Debe seleccionar una organización válida"
+          </motion.p>
+        )}
       </motion.div>
     );
   };
@@ -354,14 +476,11 @@ export const RegisterBancarioOrganization = ({ switchAuthHandler }) => {
             {renderInputField("ingresosMensuales", "Ingresos Mensuales (Q)", "number", "Ingresos deben ser mayores a 100")}
             {renderInputField("saldoCuenta", "Saldo de Cuenta (Q)", "number", "El saldo debe ser mayor a 0")}
             {renderSelectField("tipoCuenta", "Tipo de Cuenta", [
-              { value: "" },
+              { value: "", label: "Seleccione un tipo" },
               { value: "AHORRO", label: "Ahorro" },
               { value: "MONETARIA", label: "Monetaria" },
             ])}
-            {renderSelectField("organization", "Organización Referencia", [
-              { value: "" },
-              ...users,
-            ])}
+            {renderOrganizationSearchField()}
 
             <motion.button
               type="submit"
@@ -373,11 +492,10 @@ export const RegisterBancarioOrganization = ({ switchAuthHandler }) => {
               whileTap={{ scale: 0.97 }}
               animate={{ scale: clickedRegister ? 0.97 : 1 }}
               transition={{ type: "spring", stiffness: 400, damping: 10 }}
-              className={`mt-6 py-3 px-6 rounded-xl font-medium tracking-wide shadow-lg transition-all w-full col-span-2 ${
-                isSubmitDisabled
+              className={`mt-6 py-3 px-6 rounded-xl font-medium tracking-wide shadow-lg transition-all w-full col-span-2 ${isSubmitDisabled
                   ? "bg-gray-500/50 cursor-not-allowed"
                   : "bg-gradient-to-r from-cyan-600 to-cyan-700 hover:shadow-[0_0_15px_#06b6d4]"
-              }`}
+                }`}
             >
               {isLoading ? (
                 <motion.span

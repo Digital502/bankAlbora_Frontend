@@ -45,6 +45,9 @@ const particleVariants = {
 export const RegisterBancario = ({ switchAuthHandler }) => {
   const { accounts, getUseAccounts, isLoading, registerNewAccount } = useRegisterAccount();
   const [users, setUsers] = useState([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [filteredUsers, setFilteredUsers] = useState([]);
 
   const [formState, setFormState] = useState({
     ingresosMensuales: { value: "", isValid: false, showError: false, isFocused: false },
@@ -53,17 +56,19 @@ export const RegisterBancario = ({ switchAuthHandler }) => {
     user: { value: "", isValid: true, showError: false },
   });
 
-
   useEffect(() => {
     const fetchUsers = async () => {
       try {
         const response = await getUsers();
         if (response?.users?.length) {
           const formattedUsers = response.users.map((user) => ({
-            label: user.correo,
+            label: `${user.nombre} ${user.apellido} (${user.correo})`,
             value: user.uid,
+            email: user.correo,
+            fullName: `${user.nombre} ${user.apellido}`
           }));
           setUsers(formattedUsers);
+          setFilteredUsers(formattedUsers);
         } else {
           console.warn("No se encontraron usuarios.");
           toast.error("No se encontraron usuarios.");
@@ -73,11 +78,53 @@ export const RegisterBancario = ({ switchAuthHandler }) => {
         toast.error("Hubo un error al obtener los usuarios.");
       }
     };
-  
+
     fetchUsers();
   }, []);
-  
-  
+
+  const handleInputChange = (e) => {
+    const value = e.target.value;
+    setSearchTerm(value);
+    setFormState(prev => ({
+      ...prev,
+      user: { ...prev.user, value: '' }
+    }));
+
+    if (value.trim() === '') {
+      setShowSuggestions(false);
+      setFilteredUsers(users);
+    } else {
+      setShowSuggestions(true);
+      const filtered = users.filter(user =>
+        user.email.toLowerCase().includes(value.toLowerCase()) ||
+        user.fullName.toLowerCase().includes(value.toLowerCase())
+      );
+      setFilteredUsers(filtered);
+    }
+
+    const match = users.find(user =>
+      user.email === value.trim() ||
+      user.fullName === value.trim() ||
+      user.label === value.trim()
+    );
+
+    if (match) {
+      setFormState(prev => ({
+        ...prev,
+        user: { ...prev.user, value: match.value }
+      }));
+      setShowSuggestions(false);
+    }
+  };
+
+  const handleSuggestionClick = (user) => {
+    setSearchTerm(user.label);
+    setFormState(prev => ({
+      ...prev,
+      user: { ...prev.user, value: user.value }
+    }));
+    setShowSuggestions(false);
+  };
 
   const [clickedRegister, setClickedRegister] = useState(false);
   const particlesArray = Array(60).fill(0);
@@ -172,17 +219,15 @@ export const RegisterBancario = ({ switchAuthHandler }) => {
           onChange={(e) => handleInputValueChange(e.target.value, field)}
           onFocus={() => handleInputFocus(field)}
           onBlur={() => handleInputBlur(field)}
-          className={`w-full bg-[#334155] border ${
-            fieldState.showError ? "border-red-500" : "border-[#9AF241]"
-          } rounded-lg px-4 pt-5 pb-2 focus:outline-none focus:ring-2 focus:ring-cyan-500 peer transition-all`}
+          className={`w-full bg-[#334155] border ${fieldState.showError ? "border-red-500" : "border-[#9AF241]"
+            } rounded-lg px-4 pt-5 pb-2 focus:outline-none focus:ring-2 focus:ring-cyan-500 peer transition-all`}
         />
         <label
           htmlFor={field}
-          className={`absolute left-4 ${
-            fieldState.value || fieldState.isFocused
+          className={`absolute left-4 ${fieldState.value || fieldState.isFocused
               ? "top-1 text-xs text-[#9AF241]"
               : "top-1/2 -translate-y-1/2 text-gray-400"
-          } peer-focus:top-1 peer-focus:text-xs peer-focus:text-[#9AF241] transition-all duration-200`}
+            } peer-focus:top-1 peer-focus:text-xs peer-focus:text-[#9AF241] transition-all duration-200`}
         >
           {label}
         </label>
@@ -212,9 +257,8 @@ export const RegisterBancario = ({ switchAuthHandler }) => {
           id={field}
           value={fieldState.value}
           onChange={(e) => handleInputValueChange(e.target.value, field)}
-          className={`w-full bg-[#334155] border ${
-            fieldState.showError ? "border-red-500" : "border-[#9AF241]"
-          } rounded-lg px-1 pt-5 pb-2 focus:outline-none focus:ring-2 focus:ring-cyan-500 peer transition-all`}
+          className={`w-full bg-[#334155] border ${fieldState.showError ? "border-red-500" : "border-[#9AF241]"
+            } rounded-lg px-1 pt-5 pb-2 focus:outline-none focus:ring-2 focus:ring-cyan-500 peer transition-all`}
         >
           {options.map((option) => (
             <option key={option.value} value={option.value}>
@@ -224,18 +268,90 @@ export const RegisterBancario = ({ switchAuthHandler }) => {
         </select>
         <label
           htmlFor={field}
-          className={`absolute left-4 ${
-            fieldState.value || fieldState.isFocused
+          className={`absolute left-4 ${fieldState.value || fieldState.isFocused
               ? "top-1 text-xs text-[#9AF241]"
               : "top-1/2 -translate-y-1/2 text-gray-400"
-          } peer-focus:top-1 peer-focus:text-xs peer-focus:text-[#9AF241] transition-all duration-200`}
+            } peer-focus:top-1 peer-focus:text-xs peer-focus:text-[#9AF241] transition-all duration-200`}
         >
           {label}
         </label>
       </motion.div>
     );
   };
-  
+  const renderUserSearchField = () => {
+    const fieldState = formState.user;
+    return (
+      <motion.div
+        className="relative"
+        whileHover={{ scale: 1.02 }}
+        transition={{ type: "spring", stiffness: 400, damping: 10 }}
+      >
+        <div className="relative">
+          <input
+            id="userSearch"
+            type="text"
+            value={searchTerm}
+            onChange={handleInputChange}
+            onFocus={() => {
+              handleInputFocus('user');
+              if (searchTerm.trim() !== '') setShowSuggestions(true);
+            }}
+            onBlur={() => {
+              setTimeout(() => setShowSuggestions(false), 200);
+              handleInputBlur('user');
+            }}
+            placeholder=""
+            className={`w-full bg-[#334155] border ${fieldState.showError ? "border-red-500" : "border-[#9AF241]"
+              } rounded-lg px-4 pt-5 pb-2 focus:outline-none focus:ring-2 focus:ring-cyan-500 peer transition-all`}
+          />
+          <label
+            htmlFor="userSearch"
+            className={`absolute left-4 ${searchTerm || fieldState.isFocused
+                ? "top-1 text-xs text-[#9AF241]"
+                : "top-1/2 -translate-y-1/2 text-gray-400"
+              } peer-focus:top-1 peer-focus:text-xs peer-focus:text-[#9AF241] transition-all duration-200`}
+          >
+            Usuario Referencia
+          </label>
+
+          {showSuggestions && (
+            <ul className="absolute z-10 w-full bg-[#1e293b] border border-[#9AF241] mt-1 rounded-lg max-h-60 overflow-y-auto shadow-lg">
+              {filteredUsers.length > 0 ? (
+                filteredUsers.map(user => (
+                  <li
+                    key={user.value}
+                    onClick={() => handleSuggestionClick(user)}
+                    className="px-4 py-2 hover:bg-[#334155] cursor-pointer text-white text-sm"
+                  >
+                    {user.label}
+                  </li>
+                ))
+              ) : (
+                <li className="px-4 py-2 text-gray-400 text-sm">No se encontraron coincidencias</li>
+              )}
+            </ul>
+          )}
+        </div>
+
+        <input
+          type="hidden"
+          name="user"
+          value={fieldState.value}
+        />
+
+        {fieldState.showError && (
+          <motion.p
+            className="mt-1 text-sm text-red-400"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            "Debe seleccionar un usuario válido"
+          </motion.p>
+        )}
+      </motion.div>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0f172a] via-[#1e293b] to-[#0f172a] text-white px-6 py-12 flex flex-col items-center justify-center space-y-4">
@@ -342,17 +458,14 @@ export const RegisterBancario = ({ switchAuthHandler }) => {
           >
             {renderInputField("ingresosMensuales", "Ingresos Mensuales (Q)", "number", "Ingresos deben ser mayores a 100")}
             {renderInputField("saldoCuenta", "Saldo de Cuenta (Q)", "number", "El saldo debe ser mayor a 0")}
-            
+
             {renderSelectField("tipoCuenta", "Tipo de Cuenta", [
               { value: "" },
               { value: "AHORRO", label: "Ahorro" },
               { value: "MONETARIA", label: "Monetaria" },
             ])}
-            
-            {renderSelectField("user", "Usuario Referencia", [
-              { value: "" },
-              ...users,
-            ])}
+
+            {renderUserSearchField()}
 
             <motion.button
               type="submit"
@@ -364,11 +477,10 @@ export const RegisterBancario = ({ switchAuthHandler }) => {
               whileTap={{ scale: 0.97 }}
               animate={{ scale: clickedRegister ? 0.97 : 1 }}
               transition={{ type: "spring", stiffness: 400, damping: 10 }}
-              className={`mt-6 py-3 px-6 rounded-xl font-medium tracking-wide shadow-lg transition-all w-full col-span-2 ${
-                isSubmitDisabled
+              className={`mt-6 py-3 px-6 rounded-xl font-medium tracking-wide shadow-lg transition-all w-full col-span-2 ${isSubmitDisabled
                   ? "bg-gray-500/50 cursor-not-allowed"
                   : "bg-gradient-to-r from-cyan-600 to-cyan-700 hover:shadow-[0_0_15px_#06b6d4]"
-              }`}
+                }`}
             >
               {isLoading ? (
                 <motion.span
@@ -408,7 +520,7 @@ export const RegisterBancario = ({ switchAuthHandler }) => {
       </motion.div>
 
       <br /><br />
-        <Footer/>
+      <Footer />
     </div>
   );
 };

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect  } from "react";
 import { motion } from "framer-motion";
 import { Globe, RefreshCw } from "lucide-react";
 import { useConvertidor } from "../../shared/hooks/useConvertDivisas";
@@ -11,6 +11,36 @@ export const ConvertDivisas = ({ cuentas = [], onConversionSuccess }) => {
   const { convert, isLoading } = useConvertidor();
   const [resultados, setResultados] = useState({});
   const [conversionRealizada, setConversionRealizada] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  useEffect(() => {
+    const monedaInicial = monedas.find(m => m.code === monedaDestino);
+    if (monedaInicial) {
+      setSearchTerm(monedaInicial.nombre);
+    }
+  }, [monedaDestino]);
+
+  const handleInputChange = (e) => {
+    const value = e.target.value;
+    setSearchTerm(value);
+    setShowSuggestions(value.trim() !== '');
+    setConversionRealizada(false);
+
+    if (value.trim() === '') {
+      setMonedaDestino("GTQ");
+    }
+  };
+
+  const handleSuggestionClick = (currencyCode) => {
+    const selectedCurrency = monedas.find(m => m.code === currencyCode);
+    if (selectedCurrency) {
+      setSearchTerm(selectedCurrency.nombre);
+      setMonedaDestino(currencyCode);
+      setShowSuggestions(false);
+      setConversionRealizada(false);
+    }
+  };
 
   const handleConvertirTodas = async () => {
     if (cuentas.length === 0) {
@@ -80,20 +110,43 @@ export const ConvertDivisas = ({ cuentas = [], onConversionSuccess }) => {
           <Globe size={28} className="text-[#9AF241]" />
           <p className="font-semibold text-lg text-white">Convertir Saldo a:</p>
         </div>
-        <select
-          value={monedaDestino}
-          onChange={(e) => {
-            setMonedaDestino(e.target.value);
-            setConversionRealizada(false);
-          }}
-          className="bg-[#1e293b] border border-gray-600 rounded-md px-2 py-2 text-white cursor-pointer w-full sm:w-auto max-w-full"
-        >
-          {monedas.map((moneda) => (
-            <option key={moneda.code} value={moneda.code}>
-              {moneda.nombre}
-            </option>
-          ))}
-        </select>
+        <div className="relative w-full sm:w-64"> 
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={handleInputChange}
+            onFocus={() => searchTerm && setShowSuggestions(true)}
+            onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+            placeholder="Buscar moneda..."
+            className="bg-[#1e293b] border border-gray-600 rounded-md px-4 py-2 text-white w-full focus:outline-none focus:ring-2 focus:ring-[#9AF241]"
+          />
+          {showSuggestions && (
+            <ul className="absolute z-50 w-full bg-[#1e293b] border border-[#9AF241] mt-1 rounded-lg max-h-60 overflow-y-auto shadow-lg">
+              {monedas
+                .filter(m => 
+                  m.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                  m.code.toLowerCase().includes(searchTerm.toLowerCase())
+                )
+                .map(moneda => (
+                  <li
+                    key={moneda.code}
+                    onMouseDown={() => handleSuggestionClick(moneda.code)} 
+                    className="px-4 py-2 hover:bg-[#334155] cursor-pointer text-white text-sm flex items-center gap-2"
+                  >
+                    <span className="font-bold">{moneda.code}</span>
+                    <span>{moneda.nombre}</span>
+                    <span className="ml-auto">{moneda.symbol}</span>
+                  </li>
+                ))}
+              {monedas.filter(m => 
+                m.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                m.code.toLowerCase().includes(searchTerm.toLowerCase())
+              ).length === 0 && (
+                <li className="px-4 py-2 text-gray-400 text-sm">No se encontraron coincidencias</li>
+              )}
+            </ul>
+          )}
+        </div>
       </div>
 
       <div className="text-center mt-2">

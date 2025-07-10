@@ -19,6 +19,8 @@ export const ListProductUser = () => {
   const [showModal, setShowModal] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState(null);
   const [selectedAccount, setSelectedAccount] = useState('');
+  const [searchTermAccount, setSearchTermAccount] = useState("");
+  const [showSuggestionsAccount, setShowSuggestionsAccount] = useState(false);
   const [cardData, setCardData] = useState({
     numeroTarjeta: '',
     cvv: ''
@@ -179,7 +181,23 @@ export const ListProductUser = () => {
   };
 
   const isLoadingAll = isLoadingAccounts || isLoading;
+  const handleAccountSearchChange = (value) => {
+    setSearchTermAccount(value);
+    setSelectedAccount('');
+    setShowSuggestionsAccount(value.trim() !== '');
+  };
 
+  const handleAccountSelect = (accountNumber) => {
+    setSelectedAccount(accountNumber);
+    const selectedAccount = accounts.find(acc => acc.numeroCuenta === accountNumber);
+    setSearchTermAccount(selectedAccount ? `${accountNumber} - ${selectedAccount.tipoCuenta}` : accountNumber);
+    setShowSuggestionsAccount(false);
+  };
+
+  const filteredAccounts = accounts.filter(account => 
+    account.numeroCuenta.includes(searchTermAccount) ||
+    account.tipoCuenta.toLowerCase().includes(searchTermAccount.toLowerCase())
+  );
   return (
     <div>
       <NavbarDashboardUser/>
@@ -427,23 +445,39 @@ export const ListProductUser = () => {
                   {paymentMethod === 'transferencia' && (
                     <div className="mt-4">
                       <label className="block text-white/80 mb-2">Selecciona cuenta origen:</label>
-                      <select
-                        value={selectedAccount}
-                        onChange={(e) => setSelectedAccount(e.target.value)}
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={searchTermAccount}
+                        onChange={(e) => handleAccountSearchChange(e.target.value)}
+                        onFocus={() => setShowSuggestionsAccount(true)}
+                        onBlur={() => setTimeout(() => setShowSuggestionsAccount(false), 200)}
+                        placeholder="Buscar cuenta por número o tipo"
                         className="w-full p-3 rounded-lg bg-white/10 border border-white/30 text-white focus:outline-none focus:ring-2 focus:ring-[#9AF241]"
                         disabled={isLoadingAccounts}
-                      >
-                        <option value="" className="text-gray-900">Selecciona una cuenta</option>
-                        {accounts.map((account) => (
-                          <option 
-                            key={account.numeroCuenta} 
-                            value={account.numeroCuenta}
-                            className="text-gray-900"
-                          >
-                            {account.label} (Q{account.saldoCuenta.toFixed(2)})
-                          </option>
-                        ))}
-                      </select>
+                      />
+                      <input type="hidden" name="cuentaOrigen" value={selectedAccount} />
+                      
+                      {showSuggestionsAccount && (
+                        <ul className="absolute z-10 w-full bg-[#1e293b] border border-[#9AF241] mt-1 rounded-lg max-h-60 overflow-y-auto shadow-lg">
+                          {filteredAccounts.length > 0 ? (
+                            filteredAccounts.map(account => (
+                              <li
+                                key={account.numeroCuenta}
+                                onClick={() => handleAccountSelect(account.numeroCuenta)}
+                                className={`px-4 py-2 hover:bg-[#334155] cursor-pointer text-white text-sm ${
+                                  account.numeroCuenta === selectedAccount ? 'bg-[#334155]' : ''
+                                }`}
+                              >
+                                {account.numeroCuenta} - {account.tipoCuenta} (Q{account.saldoCuenta?.toFixed(2) || '0.00'})
+                              </li>
+                            ))
+                          ) : (
+                            <li className="px-4 py-2 text-gray-400 text-sm">No se encontraron coincidencias</li>
+                          )}
+                        </ul>
+                      )}
+                    </div>
                     </div>
                   )}
 
@@ -493,6 +527,7 @@ export const ListProductUser = () => {
                       (paymentMethod === 'transferencia' && !selectedAccount) ||
                       (paymentMethod === 'tarjeta' && (!cardData.numeroTarjeta || !cardData.cvv))
                     }
+
                   >
                     {isProcessingPurchase ? (
                       <>

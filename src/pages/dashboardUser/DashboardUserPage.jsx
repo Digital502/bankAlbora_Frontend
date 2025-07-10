@@ -42,9 +42,12 @@ export const DashboardUserPage = () => {
   const navigate = useNavigate();
   const [accounts, setAccounts] = useState([]);
   const [selectedAccount, setSelectedAccount] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [recentMovements, setRecentMovements] = useState([]);
   const [isLoadingMovements, setIsLoadingMovements] = useState(false);
   const [isLoadingAccounts, setIsLoadingAccounts] = useState(true);
+
   const token = user?.token;
 
   const handleActionClick = (index) => {
@@ -105,6 +108,30 @@ export const DashboardUserPage = () => {
       setIsLoadingAccounts(false);
     }
   };
+
+  const handleInputChange = (e) => {
+    const value = e.target.value;
+    setSearchTerm(value);
+    setSelectedAccount(''); 
+    if (value.trim() === '') {
+      setShowSuggestions(false);
+    } else {
+      setShowSuggestions(true);
+    }
+
+    const match = accounts.find(acc => acc.numeroCuenta === value.trim());
+    if (match) {
+      setSelectedAccount(match.numeroCuenta);
+      setShowSuggestions(false);
+    }
+  };
+
+  const handleSuggestionClick = (accountNumber) => {
+    setSearchTerm(accountNumber);
+    setSelectedAccount(accountNumber);
+    setShowSuggestions(false);
+  };
+
 
   const fetchAccountMovements = async (accountNumber) => {
     if (!accountNumber) return;
@@ -416,69 +443,89 @@ const handleConversionSuccess = (resultados) => {
         </motion.div>
 
         {/* Selector de cuentas - AÑADIDO */}
-        <motion.div
-          className="max-w-6xl mx-auto mb-6"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 1.6 }}
-        >
-          <label className="block text-sm font-medium text-[#9AF241] mb-2">
-            Seleccionar Cuenta
-          </label>
-          <select
-            value={selectedAccount}
-            onChange={handleAccountChange}
+      <motion.div
+        className="max-w-6xl mx-auto mb-6 relative"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 1.6 }}
+      >
+        <label className="block text-sm font-medium text-[#9AF241] mb-2">
+          Seleccionar Cuenta
+        </label>
+        <div className="relative">
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={handleInputChange}
+            placeholder="Buscar cuenta por número"
             className="w-full bg-[#334155] border border-[#9AF241] rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all"
             disabled={isLoadingAccounts}
-          >
-            {isLoadingAccounts ? (
-              <option>Cargando cuentas...</option>
-            ) : accounts.length > 0 ? (
-              accounts.map(account => (
-                <option key={account.numeroCuenta} value={account.numeroCuenta}>
-                  {account.numeroCuenta} - {account.tipoCuenta} (Q{account.saldoCuenta?.toFixed(2) || '0.00'})
-                </option>
-              ))
-            ) : (
-              <option>No hay cuentas disponibles</option>
-            )}
-          </select>
-        </motion.div>
+          />
+          {showSuggestions && (
+            <ul className="absolute z-10 w-full bg-[#1e293b] border border-[#9AF241] mt-1 rounded-lg max-h-60 overflow-y-auto shadow-lg">
+              {accounts
+                .filter(acc =>
+                  acc.numeroCuenta.toLowerCase().includes(searchTerm.toLowerCase()) &&
+                  acc.numeroCuenta !== searchTerm
+                )
+                .map(account => (
+                  <li
+                    key={account.numeroCuenta}
+                    onClick={() => handleSuggestionClick(account.numeroCuenta)}
+                    className="px-4 py-2 hover:bg-[#334155] cursor-pointer text-white text-sm"
+                  >
+                    {account.numeroCuenta} - {account.tipoCuenta} (Q{account.saldoCuenta?.toFixed(2) || '0.00'})
+                  </li>
+                ))}
+              {accounts.filter(acc => acc.numeroCuenta.includes(searchTerm)).length === 0 && (
+                <li className="px-4 py-2 text-gray-400 text-sm">No se encontraron coincidencias</li>
+              )}
+            </ul>
+          )}
+        </div>
+        {selectedAccount && (
+          <div className="mt-2 text-sm text-green-400">
+            Cuenta seleccionada: {selectedAccount}
+          </div>
+        )}
+      </motion.div>
 
         {/* Movimientos recientes - MODIFICADO */}
-        <motion.div
-          className="max-w-6xl mx-auto bg-[#1e293b]/80 rounded-2xl p-6 shadow-lg"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 1.7 }}
-        >
-          <h2 className="text-xl font-semibold text-[#9AF241] mb-4">Movimientos recientes</h2>
-          {isLoadingMovements ? (
-            <div className="text-center py-4 text-[#CDE5DD]">Cargando movimientos...</div>
-          ) : recentMovements.length > 0 ? (
-            <ul className="divide-y divide-[#334155]">
-              {recentMovements.map((movement) => (
-                <li key={movement.uid} className="py-4 flex justify-between items-center">
-                  <div>
-                    <p className="font-medium text-white capitalize">{movement.tipo}</p>
-                    <p className="text-sm text-[#94a3b8]">
-                      {new Date(movement.fecha).toLocaleString()}
-                    </p>
-                  </div>
-                  <div className={`text-lg font-bold ${
-                    movement.tipo === "retiro" ? "text-red-400" : "text-green-400"
-                  }`}>
-                    {movement.tipo === "retiro" ? "-" : "+"}Q{Math.abs(movement.monto).toFixed(2)}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <div className="text-center py-4 text-[#CDE5DD]">
-              {selectedAccount ? 'No se encontraron movimientos' : 'Seleccione una cuenta para ver movimientos'}
-            </div>
-          )}
-        </motion.div>
+      <motion.div
+        className="max-w-6xl mx-auto bg-[#1e293b]/80 rounded-2xl p-6 shadow-lg"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 1.7 }}
+      >
+        <h2 className="text-xl font-semibold text-[#9AF241] mb-4">
+          Movimientos recientes {selectedAccount && `(Cuenta: ${selectedAccount})`}
+        </h2>
+        {isLoadingMovements ? (
+          <div className="text-center py-4 text-[#CDE5DD]">Cargando movimientos...</div>
+        ) : recentMovements.length > 0 ? (
+          <ul className="divide-y divide-[#334155]">
+            {recentMovements.map((movement) => (
+              <li key={movement.uid} className="py-4 flex justify-between items-center">
+                <div>
+                  <p className="font-medium text-white capitalize">{movement.tipo}</p>
+                  <p className="text-sm text-[#94a3b8]">
+                    {new Date(movement.fecha).toLocaleString()}
+                  </p>
+                </div>
+                <div className={`text-lg font-bold ${
+                  movement.tipo === "retiro" ? "text-red-400" : "text-green-400"
+                }`}>
+                  {movement.tipo === "retiro" ? "-" : "+"}Q{Math.abs(movement.monto).toFixed(2)}
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="text-center py-4 text-[#CDE5DD]">
+            {selectedAccount ? 'No se encontraron movimientos' : 'Busque y seleccione una cuenta para ver movimientos'}
+          </div>
+        )}
+      </motion.div>
         <Footer />
       </div>
     </div>
