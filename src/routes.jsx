@@ -37,6 +37,7 @@ import { ListProductUser } from "./components/product/ListProductUser";
 import { ProductListAdminPage } from "./pages/product/ProductListAdminPage"
 import { ProductListPage } from "./pages/product/ProductListPage";
 import { ProductListServicePage } from "./pages/product/ProductListServicePage";
+import { NotFound } from "./components/notFound/NotFound";
 
 export const routes = [
     {path: '/', element: <HomePage/>},
@@ -78,6 +79,6 @@ export const routes = [
     {path: '/product-list-all', element: <ProductListServicePage />},
     {path: '/products/:organizacionId', element: <ListProductUser />},
     {path: '/product-list-admin', element: <ProductListAdminPage />},
-    {path: '/product-list', element: <ProductListPage/> }
-
+    {path: '/product-list', element: <ProductListPage/> },
+    {path: '*', element: <NotFound/>}
 ]
