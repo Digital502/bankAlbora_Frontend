@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const apiClient = axios.create({
-    baseURL: "https://bank-albora.vercel.app/bankingSystemAlbora/v1/",
+    baseURL: "https://bank-albora-backend-digital-7937e234.vercel.app/",
     timeout: 3000,
     httpsAgent: false
 });
